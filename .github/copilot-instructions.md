@@ -23,6 +23,8 @@ Simple Kanban-style task manager with 3 columns (Planned, In Progress, Completed
 - Native HTML5 drag-and-drop API
 - Modal-based form for add/edit
 - Dark theme with CSS variables in `:root`
+- Toast notifications via `showToast()`
+- Paste-to-add feature: Ctrl+V on page to bulk-add tasks from clipboard
 
 ### Database Schema
 ```sql
