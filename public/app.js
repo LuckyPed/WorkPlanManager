@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadTasks();
   setupDragAndDrop();
   setupForm();
+  setupPasteToAdd();
 });
 
 // Load tasks from API
@@ -262,4 +263,113 @@ function setupForm() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
   });
+}
+
+// Paste to add multiple tasks
+function setupPasteToAdd() {
+  document.addEventListener('paste', async (e) => {
+    // Ignore if pasting inside input/textarea
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    // Check if modal is open - ignore paste
+    if (document.getElementById('taskModal').classList.contains('active')) return;
+    
+    const clipboardText = e.clipboardData.getData('text');
+    if (!clipboardText.trim()) return;
+    
+    // Find which column to paste into (check if hovering over a column)
+    const columns = document.querySelectorAll('.column');
+    let targetColumnId = null;
+    
+    // Try to detect hovered column
+    for (const col of columns) {
+      const rect = col.getBoundingClientRect();
+      // Use a simple heuristic - check mouse position would need extra tracking
+      // For now, use a visual indicator approach
+    }
+    
+    // Parse lines - split by newlines and filter
+    const lines = clipboardText
+      .split('\n')
+      .map(line => line.trim())
+      .map(line => {
+        // Remove common bullet prefixes
+        return line
+          .replace(/^[-•*]\s*/, '')    // Remove -, •, *
+          .replace(/^\d+[.)]\s*/, '')  // Remove numbered lists like "1." or "1)"
+          .trim();
+      })
+      .filter(line => line.length > 0);
+    
+    if (lines.length === 0) return;
+    
+    // Show paste dialog to select column
+    showPasteDialog(lines);
+  });
+}
+
+// Paste dialog for selecting column
+function showPasteDialog(lines) {
+  // Create dialog
+  const dialog = document.createElement('div');
+  dialog.className = 'paste-dialog';
+  dialog.innerHTML = `
+    <div class="paste-dialog-content">
+      <h3>📋 Paste ${lines.length} task${lines.length > 1 ? 's' : ''}</h3>
+      <div class="paste-preview">
+        ${lines.slice(0, 5).map(l => `<div class="paste-item">${escapeHtml(l.substring(0, 60))}${l.length > 60 ? '...' : ''}</div>`).join('')}
+        ${lines.length > 5 ? `<div class="paste-more">... and ${lines.length - 5} more</div>` : ''}
+      </div>
+      <p>Add to which column?</p>
+      <div class="paste-buttons">
+        <button class="paste-btn planned" onclick="confirmPaste('planned')">📝 Planned</button>
+        <button class="paste-btn in-progress" onclick="confirmPaste('in-progress')">🔄 In Progress</button>
+        <button class="paste-btn completed" onclick="confirmPaste('completed')">✅ Completed</button>
+      </div>
+      <button class="paste-cancel" onclick="closePasteDialog()">Cancel</button>
+    </div>
+  `;
+  
+  // Store lines for later
+  dialog.dataset.lines = JSON.stringify(lines);
+  document.body.appendChild(dialog);
+  
+  // Show with animation
+  setTimeout(() => dialog.classList.add('active'), 10);
+}
+
+function closePasteDialog() {
+  const dialog = document.querySelector('.paste-dialog');
+  if (dialog) {
+    dialog.classList.remove('active');
+    setTimeout(() => dialog.remove(), 200);
+  }
+}
+
+async function confirmPaste(columnId) {
+  const dialog = document.querySelector('.paste-dialog');
+  if (!dialog) return;
+  
+  const lines = JSON.parse(dialog.dataset.lines);
+  closePasteDialog();
+  
+  // Create tasks one by one
+  let added = 0;
+  for (const title of lines) {
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description: '', column_id: columnId })
+      });
+      const newTask = await response.json();
+      tasks.push(newTask);
+      added++;
+    } catch (error) {
+      console.error('Error adding task:', error);
+    }
+  }
+  
+  renderTasks();
+  showToast(`Added ${added} task${added > 1 ? 's' : ''}`);
 }
