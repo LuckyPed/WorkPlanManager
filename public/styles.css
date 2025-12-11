@@ -129,6 +129,20 @@ header h1 {
   background: rgba(233, 69, 96, 0.15);
 }
 
+/* Drop indicator for reordering */
+.drop-indicator {
+  height: 3px;
+  background: var(--accent);
+  border-radius: 2px;
+  margin: 0.5rem 0;
+  animation: pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .task {
   background: var(--bg-card);
   border-radius: 8px;

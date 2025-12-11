@@ -94,37 +94,102 @@ function handleDragOver(e) {
   e.preventDefault();
   e.currentTarget.classList.add('drag-over');
   e.dataTransfer.dropEffect = 'move';
+  
+  // Show drop indicator
+  const container = e.currentTarget;
+  const dropY = e.clientY;
+  const taskElements = Array.from(container.querySelectorAll('.task:not(.dragging)'));
+  
+  // Remove existing indicators
+  container.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+  
+  // Find position and add indicator
+  let insertBefore = null;
+  for (const taskEl of taskElements) {
+    const rect = taskEl.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (dropY < midY) {
+      insertBefore = taskEl;
+      break;
+    }
+  }
+  
+  const indicator = document.createElement('div');
+  indicator.className = 'drop-indicator';
+  
+  if (insertBefore) {
+    container.insertBefore(indicator, insertBefore);
+  } else {
+    container.appendChild(indicator);
+  }
 }
 
 function handleDragLeave(e) {
   e.currentTarget.classList.remove('drag-over');
+  e.currentTarget.querySelectorAll('.drop-indicator').forEach(el => el.remove());
 }
 
 async function handleDrop(e) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
+  e.currentTarget.querySelectorAll('.drop-indicator').forEach(el => el.remove());
   
   if (!draggedTask) return;
   
-  const newColumnId = e.currentTarget.id;
+  const container = e.currentTarget;
+  const newColumnId = container.id;
   const taskId = parseInt(draggedTask.dataset.id);
   const task = tasks.find(t => t.id === taskId);
   
   if (!task) return;
   
+  const oldColumnId = task.column_id;
+  
+  // Get drop position based on where user dropped
+  const dropY = e.clientY;
+  const taskElements = Array.from(container.querySelectorAll('.task:not(.dragging)'));
+  
+  let newPosition = 0;
+  for (let i = 0; i < taskElements.length; i++) {
+    const rect = taskElements[i].getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (dropY > midY) {
+      newPosition = i + 1;
+    }
+  }
+  
   // Update task column
   task.column_id = newColumnId;
   
-  // Reorder tasks in the new column
-  const columnTasks = tasks.filter(t => t.column_id === newColumnId);
+  // Get all tasks in the target column (excluding the dragged one)
+  const columnTasks = tasks
+    .filter(t => t.column_id === newColumnId && t.id !== taskId)
+    .sort((a, b) => a.position - b.position);
+  
+  // Insert at new position
+  columnTasks.splice(newPosition, 0, task);
+  
+  // Update positions
   columnTasks.forEach((t, idx) => t.position = idx);
+  
+  // If moved between columns, also update old column positions
+  if (oldColumnId !== newColumnId) {
+    const oldColumnTasks = tasks
+      .filter(t => t.column_id === oldColumnId)
+      .sort((a, b) => a.position - b.position);
+    oldColumnTasks.forEach((t, idx) => t.position = idx);
+  }
   
   // Save to server
   try {
+    const tasksToUpdate = oldColumnId !== newColumnId 
+      ? [...columnTasks, ...tasks.filter(t => t.column_id === oldColumnId)]
+      : columnTasks;
+    
     await fetch(`${API_URL}/reorder`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tasks: columnTasks.map(t => ({ id: t.id, column_id: t.column_id, position: t.position })) })
+      body: JSON.stringify({ tasks: tasksToUpdate.map(t => ({ id: t.id, column_id: t.column_id, position: t.position })) })
     });
     renderTasks();
   } catch (error) {
