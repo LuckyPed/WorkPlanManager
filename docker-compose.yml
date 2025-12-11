@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  workplan:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    volumes:
+      - workplan_data:/app/data
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_PATH: /app/data/workplans.db
+      TZ: Asia/Ho_Chi_Minh
+
+volumes:
+  workplan_data:
