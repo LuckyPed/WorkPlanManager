@@ -2,6 +2,10 @@ const API_URL = '/api/tasks';
 
 let tasks = [];
 let draggedTask = null;
+let syncInterval = 30; // seconds
+let syncTimer = null;
+let lastSyncTime = null;
+let countdownTimer = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupDragAndDrop();
   setupForm();
   setupPasteToAdd();
+  setupAutoSync();
 });
 
 // Load tasks from API
@@ -446,4 +451,121 @@ async function confirmPaste(columnId) {
   
   renderTasks();
   showToast(`Added ${added} task${added > 1 ? 's' : ''}`);
+}
+
+// Auto-sync functionality
+function setupAutoSync() {
+  // Load saved interval from localStorage
+  const savedInterval = localStorage.getItem('syncInterval');
+  if (savedInterval) {
+    syncInterval = parseInt(savedInterval);
+  }
+  
+  startSyncTimer();
+  updateSyncDisplay();
+  
+  // Setup sync controls - set saved value in dropdown
+  const selectEl = document.getElementById('syncInterval');
+  selectEl.value = syncInterval;
+  // If saved value doesn't exist in dropdown, default to 30
+  if (selectEl.value !== syncInterval.toString()) {
+    syncInterval = 30;
+    selectEl.value = 30;
+  }
+  
+  selectEl.addEventListener('change', (e) => {
+    const newInterval = parseInt(e.target.value);
+    syncInterval = newInterval;
+    localStorage.setItem('syncInterval', syncInterval);
+    
+    if (newInterval === 0) {
+      stopSyncTimer();
+      showToast('Auto-sync disabled');
+    } else {
+      restartSyncTimer();
+      showToast(`Sync: ${newInterval >= 60 ? (newInterval/60) + 'm' : newInterval + 's'}`);
+    }
+  });
+  
+  // Manual sync button
+  document.getElementById('syncNow').addEventListener('click', () => {
+    syncTasks();
+  });
+}
+
+function startSyncTimer() {
+  // Clear existing timers
+  if (syncTimer) clearInterval(syncTimer);
+  if (countdownTimer) clearInterval(countdownTimer);
+  
+  // If sync is disabled, show off state
+  if (syncInterval === 0) {
+    updateCountdown('Off');
+    document.querySelector('.sync-dot').style.background = 'var(--text-secondary)';
+    document.querySelector('.sync-dot').style.animation = 'none';
+    return;
+  }
+  
+  // Restore dot animation
+  document.querySelector('.sync-dot').style.background = 'var(--success)';
+  document.querySelector('.sync-dot').style.animation = 'pulse-dot 2s ease-in-out infinite';
+  
+  // Start sync interval
+  syncTimer = setInterval(syncTasks, syncInterval * 1000);
+  
+  // Start countdown display
+  let countdown = syncInterval;
+  updateCountdown(countdown);
+  countdownTimer = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) countdown = syncInterval;
+    updateCountdown(countdown);
+  }, 1000);
+}
+
+function stopSyncTimer() {
+  if (syncTimer) clearInterval(syncTimer);
+  if (countdownTimer) clearInterval(countdownTimer);
+  syncTimer = null;
+  countdownTimer = null;
+  updateCountdown('Off');
+  document.querySelector('.sync-dot').style.background = 'var(--text-secondary)';
+  document.querySelector('.sync-dot').style.animation = 'none';
+}
+
+function restartSyncTimer() {
+  startSyncTimer();
+}
+
+async function syncTasks() {
+  try {
+    const response = await fetch(API_URL);
+    const serverTasks = await response.json();
+    
+    // Check if tasks have changed
+    const tasksChanged = JSON.stringify(tasks) !== JSON.stringify(serverTasks);
+    
+    if (tasksChanged) {
+      tasks = serverTasks;
+      renderTasks();
+      showToast('Tasks synced');
+    }
+    
+    lastSyncTime = new Date();
+    updateSyncDisplay();
+  } catch (error) {
+    console.error('Sync error:', error);
+  }
+}
+
+function updateCountdown(seconds) {
+  const el = document.getElementById('syncCountdown');
+  if (el) el.textContent = `${seconds}s`;
+}
+
+function updateSyncDisplay() {
+  const el = document.getElementById('lastSync');
+  if (el && lastSyncTime) {
+    el.textContent = `Last: ${lastSyncTime.toLocaleTimeString()}`;
+  }
 }

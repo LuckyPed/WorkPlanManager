@@ -8,8 +8,27 @@
 </head>
 <body>
   <header>
-    <h1>📋 Work Plan Manager</h1>
-    <span class="hint">💡 Tip: Paste (Ctrl+V) a list to add multiple tasks</span>
+    <div class="header-left">
+      <h1>📋 Work Plan Manager</h1>
+      <span class="hint">💡 Tip: Paste (Ctrl+V) a list to add multiple tasks</span>
+    </div>
+    <div class="sync-controls">
+      <span id="lastSync" class="sync-info"></span>
+      <div class="sync-timer">
+        <span class="sync-dot"></span>
+        <span id="syncCountdown">--</span>
+      </div>
+      <select id="syncInterval" title="Sync interval">
+        <option value="0">Off</option>
+        <option value="10">10s</option>
+        <option value="15">15s</option>
+        <option value="30" selected>30s</option>
+        <option value="60">1m</option>
+        <option value="120">2m</option>
+        <option value="300">5m</option>
+      </select>
+      <button id="syncNow" class="sync-btn" title="Sync now">↻</button>
+    </div>
   </header>
 
   <main class="board">
