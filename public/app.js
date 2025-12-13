@@ -39,8 +39,17 @@ function renderTasks() {
     }
   });
 
-  // Re-attach drag events to new elements
-  document.querySelectorAll('.task').forEach(setupTaskDrag);
+  // Re-attach drag events and double-click to new elements
+  document.querySelectorAll('.task').forEach(taskEl => {
+    setupTaskDrag(taskEl);
+    // Double-click to edit
+    taskEl.addEventListener('dblclick', (e) => {
+      // Ignore if clicking on action buttons
+      if (e.target.closest('.task-actions')) return;
+      const taskId = parseInt(taskEl.dataset.id);
+      editTask(taskId);
+    });
+  });
 }
 
 // Create task HTML
