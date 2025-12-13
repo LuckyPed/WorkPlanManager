@@ -61,7 +61,7 @@ function createTaskHTML(task) {
         <button class="delete-btn" onclick="deleteTask(${task.id})" title="Delete">🗑️</button>
       </div>
       <div class="task-title">${escapeHtml(task.title)}</div>
-      ${task.description ? `<div class="task-desc">${escapeHtml(task.description)}</div>` : ''}
+      ${task.description ? `<div class="task-desc">${escapeHtml(task.description).replace(/\n/g, '<br>')}</div>` : ''}
     </div>
   `;
 }
