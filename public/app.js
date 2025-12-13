@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupForm();
   setupPasteToAdd();
   setupAutoSync();
+  setupDataControls();
 });
 
 // Load tasks from API
@@ -567,5 +568,147 @@ function updateSyncDisplay() {
   const el = document.getElementById('lastSync');
   if (el && lastSyncTime) {
     el.textContent = `Last: ${lastSyncTime.toLocaleTimeString()}`;
+  }
+}
+
+// Export/Import functionality
+function setupDataControls() {
+  // Export button
+  document.getElementById('exportBtn').addEventListener('click', exportTasks);
+  
+  // Import file input
+  document.getElementById('importFile').addEventListener('change', importTasks);
+}
+
+function exportTasks() {
+  const exportData = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tasks: tasks.map(t => ({
+      title: t.title,
+      description: t.description,
+      column_id: t.column_id,
+      position: t.position
+    }))
+  };
+  
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `workplan-backup-${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  showToast(`Exported ${tasks.length} tasks`);
+}
+
+async function importTasks(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    
+    // Validate structure
+    if (!data.tasks || !Array.isArray(data.tasks)) {
+      throw new Error('Invalid file format');
+    }
+    
+    // Show confirmation with preview
+    const count = data.tasks.length;
+    const preview = data.tasks.slice(0, 3).map(t => t.title).join(', ');
+    
+    showImportDialog(data.tasks, count, preview);
+  } catch (error) {
+    console.error('Import error:', error);
+    showToast('Invalid backup file');
+  }
+  
+  // Reset file input
+  e.target.value = '';
+}
+
+function showImportDialog(importedTasks, count, preview) {
+  const dialog = document.createElement('div');
+  dialog.className = 'paste-dialog';
+  dialog.innerHTML = `
+    <div class="paste-dialog-content">
+      <h3>📤 Import ${count} Task${count > 1 ? 's' : ''}</h3>
+      <div class="paste-preview">
+        <div class="paste-item">${escapeHtml(preview)}${count > 3 ? '...' : ''}</div>
+      </div>
+      <p>How would you like to import?</p>
+      <div class="paste-buttons" style="flex-direction: column; gap: 0.75rem;">
+        <button class="paste-btn" onclick="confirmImport('merge')" style="width: 100%;">
+          ➕ Merge with existing tasks
+        </button>
+        <button class="paste-btn" onclick="confirmImport('replace')" style="width: 100%; color: var(--accent);">
+          🔄 Replace all tasks
+        </button>
+      </div>
+      <button class="paste-cancel" onclick="closeImportDialog()">Cancel</button>
+    </div>
+  `;
+  
+  // Store tasks for later
+  dialog.dataset.tasks = JSON.stringify(importedTasks);
+  document.body.appendChild(dialog);
+  setTimeout(() => dialog.classList.add('active'), 10);
+}
+
+function closeImportDialog() {
+  const dialog = document.querySelector('.paste-dialog');
+  if (dialog) {
+    dialog.classList.remove('active');
+    setTimeout(() => dialog.remove(), 200);
+  }
+}
+
+async function confirmImport(mode) {
+  const dialog = document.querySelector('.paste-dialog');
+  if (!dialog) return;
+  
+  const importedTasks = JSON.parse(dialog.dataset.tasks);
+  closeImportDialog();
+  
+  try {
+    // If replace mode, delete all existing tasks first
+    if (mode === 'replace') {
+      for (const task of tasks) {
+        await fetch(`${API_URL}/${task.id}`, { method: 'DELETE' });
+      }
+      tasks = [];
+    }
+    
+    // Import tasks
+    let added = 0;
+    for (const task of importedTasks) {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: task.title,
+          description: task.description || '',
+          column_id: task.column_id || 'planned'
+        })
+      });
+      
+      if (response.ok) {
+        const newTask = await response.json();
+        tasks.push(newTask);
+        added++;
+      }
+    }
+    
+    renderTasks();
+    showToast(`Imported ${added} task${added > 1 ? 's' : ''}`);
+  } catch (error) {
+    console.error('Import error:', error);
+    showToast('Import failed');
   }
 }

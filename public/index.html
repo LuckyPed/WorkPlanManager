@@ -83,6 +83,17 @@
     </div>
   </div>
 
+  <!-- Footer with data controls -->
+  <footer class="app-footer">
+    <div class="data-controls">
+      <button id="exportBtn" class="data-btn" title="Export tasks to JSON">📥 Export</button>
+      <label class="data-btn" title="Import tasks from JSON">
+        📤 Import
+        <input type="file" id="importFile" accept=".json" hidden>
+      </label>
+    </div>
+  </footer>
+
   <script src="app.js"></script>
 </body>
 </html>
