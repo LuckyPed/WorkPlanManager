@@ -63,6 +63,8 @@ function createTaskHTML(task) {
   return `
     <div class="task" draggable="true" data-id="${task.id}">
       <div class="task-actions">
+        <button class="move-btn" onclick="moveTask(${task.id}, -1)" title="Move up">▲</button>
+        <button class="move-btn" onclick="moveTask(${task.id}, 1)" title="Move down">▼</button>
         <button class="edit-btn" onclick="editTask(${task.id})" title="Edit">✏️</button>
         <button class="delete-btn" onclick="deleteTask(${task.id})" title="Delete">🗑️</button>
       </div>
@@ -102,36 +104,51 @@ function handleDragStart(e) {
 function handleDragEnd(e) {
   e.target.classList.remove('dragging');
   document.querySelectorAll('.tasks').forEach(c => c.classList.remove('drag-over'));
+  document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
   draggedTask = null;
+  lastIndicatorPosition = null;
 }
+
+// Track last indicator position to prevent flickering
+let lastIndicatorPosition = null;
 
 function handleDragOver(e) {
   e.preventDefault();
-  e.currentTarget.classList.add('drag-over');
+  e.stopPropagation();
+  
+  const container = e.currentTarget;
+  container.classList.add('drag-over');
   e.dataTransfer.dropEffect = 'move';
   
-  // Show drop indicator
-  const container = e.currentTarget;
+  // Only update indicator if mouse moved significantly
   const dropY = e.clientY;
+  
+  // Find position for indicator
   const taskElements = Array.from(container.querySelectorAll('.task:not(.dragging)'));
+  let insertBeforeId = null;
   
-  // Remove existing indicators
-  container.querySelectorAll('.drop-indicator').forEach(el => el.remove());
-  
-  // Find position and add indicator
-  let insertBefore = null;
   for (const taskEl of taskElements) {
     const rect = taskEl.getBoundingClientRect();
     const midY = rect.top + rect.height / 2;
     if (dropY < midY) {
-      insertBefore = taskEl;
+      insertBeforeId = taskEl.dataset.id;
       break;
     }
   }
   
+  // Only update DOM if position changed
+  const positionKey = `${container.id}-${insertBeforeId || 'end'}`;
+  if (lastIndicatorPosition === positionKey) return;
+  lastIndicatorPosition = positionKey;
+  
+  // Remove existing indicators from ALL containers
+  document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+  
+  // Create new indicator
   const indicator = document.createElement('div');
   indicator.className = 'drop-indicator';
   
+  const insertBefore = insertBeforeId ? container.querySelector(`.task[data-id="${insertBeforeId}"]`) : null;
   if (insertBefore) {
     container.insertBefore(indicator, insertBefore);
   } else {
@@ -140,14 +157,19 @@ function handleDragOver(e) {
 }
 
 function handleDragLeave(e) {
+  // Only handle if actually leaving the container (not entering a child)
+  if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
+  
   e.currentTarget.classList.remove('drag-over');
   e.currentTarget.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+  lastIndicatorPosition = null;
 }
 
 async function handleDrop(e) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
-  e.currentTarget.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+  document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
+  lastIndicatorPosition = null;
   
   if (!draggedTask) return;
   
@@ -246,6 +268,46 @@ function editTask(id) {
   const task = tasks.find(t => t.id === id);
   if (task) {
     openModal(task.column_id, id);
+  }
+}
+
+// Move task up (-1) or down (+1) within column
+async function moveTask(id, direction) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  
+  // Get tasks in same column, sorted by position
+  const columnTasks = tasks
+    .filter(t => t.column_id === task.column_id)
+    .sort((a, b) => a.position - b.position);
+  
+  const currentIndex = columnTasks.findIndex(t => t.id === id);
+  const newIndex = currentIndex + direction;
+  
+  // Check bounds
+  if (newIndex < 0 || newIndex >= columnTasks.length) return;
+  
+  // Swap positions
+  const otherTask = columnTasks[newIndex];
+  const tempPos = task.position;
+  task.position = otherTask.position;
+  otherTask.position = tempPos;
+  
+  // Save to server
+  try {
+    await fetch(`${API_URL}/reorder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        tasks: [
+          { id: task.id, column_id: task.column_id, position: task.position },
+          { id: otherTask.id, column_id: otherTask.column_id, position: otherTask.position }
+        ]
+      })
+    });
+    renderTasks();
+  } catch (error) {
+    console.error('Error moving task:', error);
   }
 }
 

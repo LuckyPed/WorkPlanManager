@@ -225,6 +225,8 @@ header h1 {
   border-radius: 2px;
   margin: 0.5rem 0;
   animation: pulse 0.8s ease-in-out infinite;
+  pointer-events: none;
+  flex-shrink: 0;
 }
 
 @keyframes pulse {
@@ -281,13 +283,27 @@ header h1 {
 }
 
 .task-actions button {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.move-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  font-size: 0.6rem;
+}
+
+.move-btn:hover {
+  background: var(--success);
+  color: #000;
 }
 
 .edit-btn {
