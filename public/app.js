@@ -6,6 +6,8 @@ let syncInterval = 30; // seconds
 let syncTimer = null;
 let lastSyncTime = null;
 let countdownTimer = null;
+let futurePlansVisible = false;
+let archivesVisible = false;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupPasteToAdd();
   setupAutoSync();
   setupDataControls();
+  loadColumnStates();
 });
 
 // Load tasks from API
@@ -30,18 +33,22 @@ async function loadTasks() {
 
 // Render tasks to columns
 function renderTasks() {
-  const columns = ['planned', 'in-progress', 'completed'];
+  const columns = ['future-plans', 'planned', 'in-progress', 'completed', 'archives'];
   
   columns.forEach(columnId => {
     const container = document.getElementById(columnId);
+    if (!container) return;
+    
     const columnTasks = tasks
       .filter(t => t.column_id === columnId)
       .sort((a, b) => a.position - b.position);
     
     if (columnTasks.length === 0) {
-      container.innerHTML = '<div class="empty-state">Drop tasks here</div>';
+      container.innerHTML = columnId === 'archives' 
+        ? '<div class="empty-state">No archived tasks</div>'
+        : '<div class="empty-state">Drop tasks here</div>';
     } else {
-      container.innerHTML = columnTasks.map(task => createTaskHTML(task)).join('');
+      container.innerHTML = columnTasks.map(task => createTaskHTML(task, columnId === 'archives')).join('');
     }
   });
 
@@ -59,14 +66,28 @@ function renderTasks() {
 }
 
 // Create task HTML
-function createTaskHTML(task) {
+function createTaskHTML(task, isArchive = false) {
+  if (isArchive) {
+    // Archive tasks have restore and permanent delete buttons
+    return `
+      <div class="task" draggable="true" data-id="${task.id}">
+        <div class="task-actions">
+          <button class="restore-btn" onclick="restoreTask(${task.id})" title="Restore to Planned">↩️</button>
+          <button class="delete-btn" onclick="permanentDeleteTask(${task.id})" title="Delete permanently">🗑️</button>
+        </div>
+        <div class="task-title">${escapeHtml(task.title)}</div>
+        ${task.description ? `<div class="task-desc">${processDescription(task.description)}</div>` : ''}
+      </div>
+    `;
+  }
+  
   return `
     <div class="task" draggable="true" data-id="${task.id}">
       <div class="task-actions">
         <button class="move-btn" onclick="moveTask(${task.id}, -1)" title="Move up">▲</button>
         <button class="move-btn" onclick="moveTask(${task.id}, 1)" title="Move down">▼</button>
         <button class="edit-btn" onclick="editTask(${task.id})" title="Edit">✏️</button>
-        <button class="delete-btn" onclick="deleteTask(${task.id})" title="Delete">🗑️</button>
+        <button class="delete-btn" onclick="deleteTask(${task.id})" title="Archive">🗑️</button>
       </div>
       <div class="task-title">${escapeHtml(task.title)}</div>
       ${task.description ? `<div class="task-desc">${processDescription(task.description)}</div>` : ''}
@@ -311,8 +332,66 @@ async function moveTask(id, direction) {
   }
 }
 
+// Archive task instead of deleting (soft delete)
 async function deleteTask(id) {
-  // No confirmation - just delete with smooth animation
+  const taskEl = document.querySelector(`.task[data-id="${id}"]`);
+  if (taskEl) {
+    taskEl.style.transform = 'translateX(100%)';
+    taskEl.style.opacity = '0';
+  }
+  
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  
+  try {
+    // Move to archives column
+    const archiveTasks = tasks.filter(t => t.column_id === 'archives');
+    const newPosition = archiveTasks.length;
+    
+    await fetch(`${API_URL}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ column_id: 'archives', position: newPosition })
+    });
+    
+    task.column_id = 'archives';
+    task.position = newPosition;
+    
+    setTimeout(() => renderTasks(), 200);
+    showToast('Task archived');
+  } catch (error) {
+    console.error('Error archiving:', error);
+    renderTasks();
+  }
+}
+
+// Restore task from archives to planned
+async function restoreTask(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  
+  try {
+    const plannedTasks = tasks.filter(t => t.column_id === 'planned');
+    const newPosition = plannedTasks.length;
+    
+    await fetch(`${API_URL}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ column_id: 'planned', position: newPosition })
+    });
+    
+    task.column_id = 'planned';
+    task.position = newPosition;
+    
+    renderTasks();
+    showToast('Task restored to Planned');
+  } catch (error) {
+    console.error('Error restoring:', error);
+  }
+}
+
+// Permanently delete task (from archives)
+async function permanentDeleteTask(id) {
   const taskEl = document.querySelector(`.task[data-id="${id}"]`);
   if (taskEl) {
     taskEl.style.transform = 'translateX(100%)';
@@ -323,10 +402,10 @@ async function deleteTask(id) {
     await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
     tasks = tasks.filter(t => t.id !== id);
     setTimeout(() => renderTasks(), 200);
-    showToast('Task deleted');
+    showToast('Task permanently deleted');
   } catch (error) {
     console.error('Error deleting:', error);
-    renderTasks(); // Restore on error
+    renderTasks();
   }
 }
 
@@ -957,3 +1036,124 @@ window.openModal = function(columnId, taskId = null) {
   originalOpenModal(columnId, taskId);
   setTimeout(updateImagePreview, 50);
 };
+
+// ============ EXTRA COLUMNS (Future Plans & Archives) ============
+
+// Toggle individual column visibility
+function toggleColumn(columnId) {
+  const board = document.getElementById('board');
+  
+  if (columnId === 'future-plans') {
+    futurePlansVisible = !futurePlansVisible;
+    const toggleBtn = document.getElementById('toggleFuturePlans');
+    
+    if (futurePlansVisible) {
+      board.classList.add('show-future-plans');
+      toggleBtn.classList.add('active');
+    } else {
+      board.classList.remove('show-future-plans');
+      toggleBtn.classList.remove('active');
+    }
+    
+    localStorage.setItem('futurePlansVisible', futurePlansVisible);
+  } 
+  else if (columnId === 'archives') {
+    archivesVisible = !archivesVisible;
+    const toggleBtn = document.getElementById('toggleArchives');
+    
+    if (archivesVisible) {
+      board.classList.add('show-archives');
+      toggleBtn.classList.add('active');
+    } else {
+      board.classList.remove('show-archives');
+      toggleBtn.classList.remove('active');
+    }
+    
+    localStorage.setItem('archivesVisible', archivesVisible);
+  }
+}
+
+// Load column visibility states
+function loadColumnStates() {
+  const savedFuturePlans = localStorage.getItem('futurePlansVisible');
+  const savedArchives = localStorage.getItem('archivesVisible');
+  
+  if (savedFuturePlans === 'true') {
+    futurePlansVisible = false; // Will be toggled to true
+    toggleColumn('future-plans');
+  }
+  
+  if (savedArchives === 'true') {
+    archivesVisible = false; // Will be toggled to true
+    toggleColumn('archives');
+  }
+}
+
+// Filter archives by search term
+function filterArchives() {
+  const searchTerm = document.getElementById('archiveSearch').value.toLowerCase();
+  const archiveContainer = document.getElementById('archives');
+  const archiveTasks = tasks.filter(t => t.column_id === 'archives');
+  
+  if (!searchTerm) {
+    // Show all archived tasks
+    if (archiveTasks.length === 0) {
+      archiveContainer.innerHTML = '<div class="empty-state">No archived tasks</div>';
+    } else {
+      archiveContainer.innerHTML = archiveTasks
+        .sort((a, b) => a.position - b.position)
+        .map(task => createTaskHTML(task, true))
+        .join('');
+    }
+  } else {
+    // Filter by search term
+    const filtered = archiveTasks.filter(t => 
+      t.title.toLowerCase().includes(searchTerm) || 
+      (t.description && t.description.toLowerCase().includes(searchTerm))
+    );
+    
+    if (filtered.length === 0) {
+      archiveContainer.innerHTML = '<div class="empty-state">No matching tasks</div>';
+    } else {
+      archiveContainer.innerHTML = filtered
+        .sort((a, b) => a.position - b.position)
+        .map(task => createTaskHTML(task, true))
+        .join('');
+    }
+  }
+  
+  // Re-attach drag events
+  archiveContainer.querySelectorAll('.task').forEach(taskEl => {
+    setupTaskDrag(taskEl);
+  });
+}
+
+// Delete all archived tasks with confirmation
+async function deleteAllArchives() {
+  const archiveTasks = tasks.filter(t => t.column_id === 'archives');
+  
+  if (archiveTasks.length === 0) {
+    showToast('No archived tasks to delete');
+    return;
+  }
+  
+  // Show confirmation dialog
+  const confirmed = confirm(`Are you sure you want to permanently delete ${archiveTasks.length} archived task(s)? This cannot be undone.`);
+  
+  if (!confirmed) return;
+  
+  try {
+    // Delete all archived tasks
+    for (const task of archiveTasks) {
+      await fetch(`${API_URL}/${task.id}`, { method: 'DELETE' });
+    }
+    
+    tasks = tasks.filter(t => t.column_id !== 'archives');
+    renderTasks();
+    showToast(`Deleted ${archiveTasks.length} archived task(s)`);
+  } catch (error) {
+    console.error('Error deleting archives:', error);
+    showToast('Error deleting archives');
+    loadTasks(); // Reload to sync state
+  }
+}

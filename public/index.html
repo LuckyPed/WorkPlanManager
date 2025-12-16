@@ -31,7 +31,16 @@
     </div>
   </header>
 
-  <main class="board">
+  <main class="board" id="board">
+    <!-- Extra Column: Future Plans (hidden by default) -->
+    <div class="column extra-column" data-column="future-plans" id="futurePlansColumn">
+      <div class="column-header">
+        <h2>🔮 Future Plans</h2>
+        <button class="add-btn" onclick="openModal('future-plans')">+</button>
+      </div>
+      <div class="tasks" id="future-plans"></div>
+    </div>
+
     <div class="column" data-column="planned">
       <div class="column-header">
         <h2>📝 Planned</h2>
@@ -54,6 +63,20 @@
         <button class="add-btn" onclick="openModal('completed')">+</button>
       </div>
       <div class="tasks" id="completed"></div>
+    </div>
+
+    <!-- Extra Column: Archives (hidden by default) -->
+    <div class="column extra-column archives-column" data-column="archives" id="archivesColumn">
+      <div class="column-header">
+        <h2>🗄️ Archives</h2>
+        <div class="archive-actions">
+          <button class="delete-all-btn" onclick="deleteAllArchives()" title="Delete all archived tasks">🗑️ Clear All</button>
+        </div>
+      </div>
+      <div class="archive-search">
+        <input type="text" id="archiveSearch" placeholder="Search archives..." oninput="filterArchives()">
+      </div>
+      <div class="tasks" id="archives"></div>
     </div>
   </main>
 
@@ -86,6 +109,14 @@
 
   <!-- Footer with data controls -->
   <footer class="app-footer">
+    <div class="column-toggles">
+      <button id="toggleFuturePlans" class="toggle-btn" onclick="toggleColumn('future-plans')" title="Show/hide Future Plans">
+        🔮 Future Plans
+      </button>
+      <button id="toggleArchives" class="toggle-btn" onclick="toggleColumn('archives')" title="Show/hide Archives">
+        🗄️ Archives
+      </button>
+    </div>
     <div class="data-controls">
       <button id="exportBtn" class="data-btn" title="Export tasks to JSON">📥 Export</button>
       <label class="data-btn" title="Import tasks from JSON">
