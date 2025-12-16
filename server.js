@@ -9,17 +9,24 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Allow larger payloads for images
 app.use(express.static('public'));
 
 // Database setup
 const dbPath = process.env.DB_PATH || './data/workplans.db';
 const dbDir = path.dirname(dbPath);
+const imagesDir = path.join(dbDir, 'images');
 
-// Ensure data directory exists
+// Ensure directories exist
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
+if (!fs.existsSync(imagesDir)) {
+  fs.mkdirSync(imagesDir, { recursive: true });
+}
+
+// Serve uploaded images
+app.use('/images', express.static(imagesDir));
 
 let db;
 
@@ -154,6 +161,31 @@ app.put('/api/tasks/:id', (req, res) => {
 // Delete task
 app.delete('/api/tasks/:id', (req, res) => {
   const { id } = req.params;
+  
+  // Get task to find any images in description
+  const taskResult = db.exec(`SELECT description FROM tasks WHERE id = ${id}`);
+  if (taskResult.length > 0 && taskResult[0].values.length > 0) {
+    const description = taskResult[0].values[0][0];
+    if (description) {
+      // Find and delete any images referenced in the description
+      const imageMatches = description.match(/\[img:\/images\/([^\]]+)\]/g);
+      if (imageMatches) {
+        imageMatches.forEach(match => {
+          const filename = match.match(/\[img:\/images\/([^\]]+)\]/)[1];
+          const imagePath = path.join(imagesDir, filename);
+          try {
+            if (fs.existsSync(imagePath)) {
+              fs.unlinkSync(imagePath);
+              console.log(`Deleted image: ${filename}`);
+            }
+          } catch (err) {
+            console.error(`Failed to delete image ${filename}:`, err);
+          }
+        });
+      }
+    }
+  }
+  
   db.run(`DELETE FROM tasks WHERE id = ?`, [id]);
   saveDb();
   res.json({ success: true });
@@ -169,6 +201,39 @@ app.post('/api/tasks/reorder', (req, res) => {
   }
   saveDb();
   res.json({ success: true });
+});
+
+// Upload image
+app.post('/api/images', (req, res) => {
+  try {
+    const { image } = req.body; // base64 data URL
+    
+    if (!image || !image.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Invalid image data' });
+    }
+    
+    // Extract base64 data
+    const matches = image.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!matches) {
+      return res.status(400).json({ error: 'Invalid image format' });
+    }
+    
+    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+    const data = matches[2];
+    const buffer = Buffer.from(data, 'base64');
+    
+    // Generate unique filename
+    const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+    const filepath = path.join(imagesDir, filename);
+    
+    // Save file
+    fs.writeFileSync(filepath, buffer);
+    
+    res.json({ url: `/images/${filename}` });
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({ error: 'Failed to upload image' });
+  }
 });
 
 // Serve frontend

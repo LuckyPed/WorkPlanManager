@@ -72,8 +72,9 @@
           <input type="text" id="taskTitleInput" required placeholder="What needs to be done?">
         </div>
         <div class="form-group">
-          <label for="taskDesc">Description (optional)</label>
+          <label for="taskDesc">Description <span class="hint-small">(paste images with Ctrl+V)</span></label>
           <textarea id="taskDesc" placeholder="Add details..."></textarea>
+          <div id="imagePreview" class="image-preview"></div>
         </div>
         <div class="form-actions">
           <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
