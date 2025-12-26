@@ -70,38 +70,60 @@ function renderTasks() {
 
 // Create task HTML
 function createTaskHTML(task, isArchive = false) {
+  const hasContent = task.description || task.followup;
   const followupHtml = task.followup ? `<div class="task-followup"><span class="followup-label">📝 Follow-up:</span> ${processDescription(task.followup)}</div>` : '';
+  const collapseBtn = hasContent ? `<button class="collapse-btn" onclick="toggleTaskCollapse(${task.id})" title="Collapse/Expand">▼</button>` : '';
   
   if (isArchive) {
     // Archive tasks have restore and permanent delete buttons
     return `
       <div class="task" draggable="true" data-id="${task.id}">
+        ${collapseBtn}
         <div class="task-actions">
           <button class="restore-btn" onclick="restoreTask(${task.id})" title="Restore to Planned">↩️</button>
           <button class="delete-btn" onclick="permanentDeleteTask(${task.id})" title="Delete permanently">🗑️</button>
         </div>
         <div class="task-title">${escapeHtml(task.title)}</div>
-        ${task.description ? `<div class="task-desc">${processDescription(task.description)}</div>` : ''}
-        ${followupHtml}
+        <div class="task-content">
+          ${task.description ? `<div class="task-desc">${processDescription(task.description)}</div>` : ''}
+          ${followupHtml}
+        </div>
       </div>
     `;
   }
   
   return `
     <div class="task" draggable="true" data-id="${task.id}">
+      ${collapseBtn}
       <div class="task-actions">
         <button class="edit-btn" onclick="editTask(${task.id})" title="Edit">✏️</button>
         <button class="delete-btn" onclick="deleteTask(${task.id})" title="Archive">🗑️</button>
       </div>
       <div class="task-title">${escapeHtml(task.title)}</div>
-      ${task.description ? `<div class="task-desc">${processDescription(task.description)}</div>` : ''}
-      ${followupHtml}
+      <div class="task-content">
+        ${task.description ? `<div class="task-desc">${processDescription(task.description)}</div>` : ''}
+        ${followupHtml}
+      </div>
       <div class="task-move-actions">
         <button class="move-btn" onclick="moveTask(${task.id}, -1)" title="Move up">▲</button>
         <button class="move-btn" onclick="moveTask(${task.id}, 1)" title="Move down">▼</button>
       </div>
     </div>
   `;
+}
+
+// Toggle task collapse/expand
+function toggleTaskCollapse(taskId) {
+  const taskEl = document.querySelector(`.task[data-id="${taskId}"]`);
+  if (!taskEl) return;
+  
+  taskEl.classList.toggle('collapsed');
+  
+  // Update button icon
+  const btn = taskEl.querySelector('.collapse-btn');
+  if (btn) {
+    btn.textContent = taskEl.classList.contains('collapsed') ? '▶' : '▼';
+  }
 }
 
 // Escape HTML to prevent XSS
