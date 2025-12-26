@@ -43,6 +43,9 @@ function renderTasks() {
       .filter(t => t.column_id === columnId)
       .sort((a, b) => a.position - b.position);
     
+    // Update task count badge
+    updateTaskCount(columnId, columnTasks.length);
+    
     if (columnTasks.length === 0) {
       container.innerHTML = columnId === 'archives' 
         ? '<div class="empty-state">No archived tasks</div>'
@@ -1196,4 +1199,23 @@ async function deleteAllArchives() {
     showToast('Error deleting archives');
     loadTasks(); // Reload to sync state
   }
+}
+
+// Update task count badge in column header
+function updateTaskCount(columnId, count) {
+  const column = document.querySelector(`.column[data-column="${columnId}"]`);
+  if (!column) return;
+  
+  const header = column.querySelector('.column-header h2');
+  if (!header) return;
+  
+  // Remove existing badge if any
+  const existingBadge = header.querySelector('.task-count');
+  if (existingBadge) existingBadge.remove();
+  
+  // Add new badge
+  const badge = document.createElement('span');
+  badge.className = 'task-count';
+  badge.textContent = count;
+  header.appendChild(badge);
 }
