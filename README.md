@@ -1,12 +1,17 @@
 # Work Plan Manager
 
-A simple, lightweight Kanban-style work plan manager with 3 columns for organizing tasks.
+A lightweight Kanban-style work plan manager with 5 columns for organizing tasks.
 
 ## Features
 
-- **3 Columns**: Planned, In Progress, Completed
-- **Drag & Drop**: Move tasks between columns easily
-- **CRUD Operations**: Add, edit, delete tasks
+- **5 Columns**: Future Plans, Planned, In Progress, Completed, Archives
+- **Drag & Drop**: Move tasks between columns with auto-scroll near edges
+- **Collapsible Tasks**: Expand/collapse task cards to show/hide details
+- **Follow-up Notes**: Track task outcomes and updates
+- **Task Count Badges**: See count of tasks in each column header
+- **Image Support**: Paste images directly into task descriptions
+- **Bulk Import**: Ctrl+V on page to bulk-add tasks from clipboard
+- **Move Buttons**: Reorder tasks within a column
 - **Dark Mode**: Modern dark theme
 - **Persistent Storage**: SQLite database
 - **Docker Ready**: Deploy easily with Docker/Coolify
@@ -44,7 +49,9 @@ WorkPlanManager/
 │   ├── index.html      # Main HTML page
 │   ├── styles.css      # Dark mode styling
 │   └── app.js          # Frontend JavaScript
-├── data/               # SQLite database (created at runtime)
+├── data/
+│   ├── workplans.db    # SQLite database (created at runtime)
+│   └── images/         # Uploaded images
 ├── Dockerfile
 ├── docker-compose.yml
 └── package.json
@@ -59,6 +66,7 @@ WorkPlanManager/
 | PUT | /api/tasks/:id | Update task |
 | DELETE | /api/tasks/:id | Delete task |
 | POST | /api/tasks/reorder | Batch update positions |
+| POST | /api/images | Upload image (base64) |
 
 ## Environment Variables
 
