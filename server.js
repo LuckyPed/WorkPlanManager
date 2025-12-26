@@ -48,12 +48,20 @@ async function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       description TEXT,
+      followup TEXT,
       column_id TEXT NOT NULL DEFAULT 'in-progress',
       position INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  
+  // Add followup column if it doesn't exist (migration for existing databases)
+  try {
+    db.run('ALTER TABLE tasks ADD COLUMN followup TEXT');
+  } catch (e) {
+    // Column already exists, ignore
+  }
   
   saveDb();
 }
@@ -69,22 +77,26 @@ function saveDb() {
 
 // Get all tasks
 app.get('/api/tasks', (req, res) => {
-  const result = db.exec('SELECT * FROM tasks ORDER BY position ASC');
-  const tasks = result.length > 0 ? result[0].values.map(row => ({
-    id: row[0],
-    title: row[1],
-    description: row[2],
-    column_id: row[3],
-    position: row[4],
-    created_at: row[5],
-    updated_at: row[6]
-  })) : [];
+  const result = db.exec('SELECT id, title, description, followup, column_id, position, created_at, updated_at FROM tasks ORDER BY position ASC');
+  if (result.length === 0) {
+    return res.json([]);
+  }
+  
+  // Get column names from result
+  const columns = result[0].columns;
+  const tasks = result[0].values.map(row => {
+    const task = {};
+    columns.forEach((col, idx) => {
+      task[col] = row[idx];
+    });
+    return task;
+  });
   res.json(tasks);
 });
 
 // Create task
 app.post('/api/tasks', (req, res) => {
-  const { title, description, column_id } = req.body;
+  const { title, description, followup, column_id } = req.body;
   const colId = column_id || 'in-progress';
   
   // Get max position
@@ -93,68 +105,63 @@ app.post('/api/tasks', (req, res) => {
   const position = maxPos + 1;
   
   db.run(
-    `INSERT INTO tasks (title, description, column_id, position) VALUES (?, ?, ?, ?)`,
-    [title, description || '', colId, position]
+    `INSERT INTO tasks (title, description, followup, column_id, position) VALUES (?, ?, ?, ?, ?)`,
+    [title, description || '', followup || '', colId, position]
   );
   saveDb();
   
   // Get the inserted task by finding max id
   const idResult = db.exec('SELECT MAX(id) FROM tasks');
   const newId = idResult[0].values[0][0];
-  const result = db.exec(`SELECT * FROM tasks WHERE id = ${newId}`);
+  const result = db.exec(`SELECT id, title, description, followup, column_id, position, created_at, updated_at FROM tasks WHERE id = ${newId}`);
+  const columns = result[0].columns;
   const row = result[0].values[0];
-  const task = {
-    id: row[0],
-    title: row[1],
-    description: row[2],
-    column_id: row[3],
-    position: row[4],
-    created_at: row[5],
-    updated_at: row[6]
-  };
+  const task = {};
+  columns.forEach((col, idx) => { task[col] = row[idx]; });
   res.json(task);
 });
 
 // Update task
 app.put('/api/tasks/:id', (req, res) => {
   const { id } = req.params;
-  const { title, description, column_id, position } = req.body;
+  const { title, description, followup, column_id, position } = req.body;
   
-  // Get current task
-  const current = db.exec(`SELECT * FROM tasks WHERE id = ${id}`);
+  // Get current task with explicit columns
+  const current = db.exec(`SELECT id, title, description, followup, column_id, position FROM tasks WHERE id = ${id}`);
   if (current.length === 0 || current[0].values.length === 0) {
     return res.status(404).json({ error: 'Task not found' });
   }
-  const curr = current[0].values[0];
+  
+  // Map current values by column name
+  const currCols = current[0].columns;
+  const currRow = current[0].values[0];
+  const curr = {};
+  currCols.forEach((col, idx) => { curr[col] = currRow[idx]; });
   
   db.run(`
     UPDATE tasks 
     SET title = ?,
         description = ?,
+        followup = ?,
         column_id = ?,
         position = ?,
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `, [
-    title !== undefined ? title : curr[1],
-    description !== undefined ? description : curr[2],
-    column_id !== undefined ? column_id : curr[3],
-    position !== undefined ? position : curr[4],
+    title !== undefined ? title : curr.title,
+    description !== undefined ? description : curr.description,
+    followup !== undefined ? followup : (curr.followup || ''),
+    column_id !== undefined ? column_id : curr.column_id,
+    position !== undefined ? position : curr.position,
     id
   ]);
   saveDb();
   
-  const result = db.exec(`SELECT * FROM tasks WHERE id = ${id}`);
+  const result = db.exec(`SELECT id, title, description, followup, column_id, position, created_at, updated_at FROM tasks WHERE id = ${id}`);
+  const columns = result[0].columns;
   const row = result[0].values[0];
-  const task = {
-    id: row[0],
-    title: row[1],
-    description: row[2],
-    column_id: row[3],
-    position: row[4],
-    created_at: row[5],
-    updated_at: row[6]
-  };
+  const task = {};
+  columns.forEach((col, idx) => { task[col] = row[idx]; });
   res.json(task);
 });
 

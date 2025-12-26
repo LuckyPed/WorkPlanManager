@@ -67,6 +67,8 @@ function renderTasks() {
 
 // Create task HTML
 function createTaskHTML(task, isArchive = false) {
+  const followupHtml = task.followup ? `<div class="task-followup"><span class="followup-label">📝 Follow-up:</span> ${processDescription(task.followup)}</div>` : '';
+  
   if (isArchive) {
     // Archive tasks have restore and permanent delete buttons
     return `
@@ -77,6 +79,7 @@ function createTaskHTML(task, isArchive = false) {
         </div>
         <div class="task-title">${escapeHtml(task.title)}</div>
         ${task.description ? `<div class="task-desc">${processDescription(task.description)}</div>` : ''}
+        ${followupHtml}
       </div>
     `;
   }
@@ -89,6 +92,7 @@ function createTaskHTML(task, isArchive = false) {
       </div>
       <div class="task-title">${escapeHtml(task.title)}</div>
       ${task.description ? `<div class="task-desc">${processDescription(task.description)}</div>` : ''}
+      ${followupHtml}
       <div class="task-move-actions">
         <button class="move-btn" onclick="moveTask(${task.id}, -1)" title="Move up">▲</button>
         <button class="move-btn" onclick="moveTask(${task.id}, 1)" title="Move down">▼</button>
@@ -305,6 +309,7 @@ function openModal(columnId, taskId = null) {
       document.getElementById('taskId').value = task.id;
       document.getElementById('taskTitleInput').value = task.title;
       document.getElementById('taskDesc').value = task.description || '';
+      document.getElementById('taskFollowup').value = task.followup || '';
     }
   } else {
     title.textContent = 'Add Task';
@@ -472,6 +477,7 @@ function setupForm() {
     const id = document.getElementById('taskId').value;
     const title = document.getElementById('taskTitleInput').value.trim();
     const description = document.getElementById('taskDesc').value.trim();
+    const followup = document.getElementById('taskFollowup').value.trim();
     const column_id = document.getElementById('taskColumn').value;
     
     if (!title) return;
@@ -482,7 +488,7 @@ function setupForm() {
         const response = await fetch(`${API_URL}/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, description })
+          body: JSON.stringify({ title, description, followup })
         });
         const updated = await response.json();
         const idx = tasks.findIndex(t => t.id === parseInt(id));
@@ -492,7 +498,7 @@ function setupForm() {
         const response = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, description, column_id })
+          body: JSON.stringify({ title, description, followup, column_id })
         });
         const newTask = await response.json();
         tasks.push(newTask);

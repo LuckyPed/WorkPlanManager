@@ -308,6 +308,24 @@ header h1 {
   word-break: break-word;
 }
 
+/* Follow-up section with subtle background */
+.task-followup {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  word-break: break-word;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  background: rgba(74, 222, 128, 0.1);
+  border-left: 3px solid var(--success);
+  border-radius: 0 6px 6px 0;
+}
+
+.task-followup .followup-label {
+  font-weight: 600;
+  color: var(--success);
+  margin-right: 0.25rem;
+}
+
 .task-actions {
   position: absolute;
   top: 0.5rem;
