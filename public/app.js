@@ -118,10 +118,18 @@ function setupTaskDrag(taskEl) {
   taskEl.addEventListener('dragend', handleDragEnd);
 }
 
+// Auto-scroll variables
+let autoScrollInterval = null;
+const SCROLL_ZONE = 100; // pixels from edge to trigger scroll
+const SCROLL_SPEED = 8; // pixels per frame
+
 function handleDragStart(e) {
   draggedTask = e.target;
   e.target.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
+  
+  // Start auto-scroll detection
+  document.addEventListener('dragover', handleAutoScroll);
 }
 
 function handleDragEnd(e) {
@@ -130,6 +138,30 @@ function handleDragEnd(e) {
   document.querySelectorAll('.drop-indicator').forEach(el => el.remove());
   draggedTask = null;
   lastIndicatorPosition = null;
+  
+  // Stop auto-scroll
+  document.removeEventListener('dragover', handleAutoScroll);
+  if (autoScrollInterval) {
+    cancelAnimationFrame(autoScrollInterval);
+    autoScrollInterval = null;
+  }
+}
+
+// Auto-scroll when dragging near edges
+function handleAutoScroll(e) {
+  const y = e.clientY;
+  const windowHeight = window.innerHeight;
+  
+  // Check if near top or bottom of viewport
+  if (y < SCROLL_ZONE) {
+    // Near top - scroll up
+    const speed = Math.max(1, (SCROLL_ZONE - y) / SCROLL_ZONE * SCROLL_SPEED);
+    window.scrollBy(0, -speed);
+  } else if (y > windowHeight - SCROLL_ZONE) {
+    // Near bottom - scroll down
+    const speed = Math.max(1, (y - (windowHeight - SCROLL_ZONE)) / SCROLL_ZONE * SCROLL_SPEED);
+    window.scrollBy(0, speed);
+  }
 }
 
 // Track last indicator position to prevent flickering
