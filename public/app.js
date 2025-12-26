@@ -84,13 +84,15 @@ function createTaskHTML(task, isArchive = false) {
   return `
     <div class="task" draggable="true" data-id="${task.id}">
       <div class="task-actions">
-        <button class="move-btn" onclick="moveTask(${task.id}, -1)" title="Move up">▲</button>
-        <button class="move-btn" onclick="moveTask(${task.id}, 1)" title="Move down">▼</button>
         <button class="edit-btn" onclick="editTask(${task.id})" title="Edit">✏️</button>
         <button class="delete-btn" onclick="deleteTask(${task.id})" title="Archive">🗑️</button>
       </div>
       <div class="task-title">${escapeHtml(task.title)}</div>
       ${task.description ? `<div class="task-desc">${processDescription(task.description)}</div>` : ''}
+      <div class="task-move-actions">
+        <button class="move-btn" onclick="moveTask(${task.id}, -1)" title="Move up">▲</button>
+        <button class="move-btn" onclick="moveTask(${task.id}, 1)" title="Move down">▼</button>
+      </div>
     </div>
   `;
 }

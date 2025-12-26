@@ -318,11 +318,13 @@ header h1 {
   transition: opacity 0.2s;
 }
 
-.task:hover .task-actions {
+.task:hover .task-actions,
+.task:hover .task-move-actions {
   opacity: 1;
 }
 
-.task-actions button {
+.task-actions button,
+.task-move-actions button {
   width: 24px;
   height: 24px;
   border: none;
@@ -333,6 +335,17 @@ header h1 {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Move buttons container - bottom right */
+.task-move-actions {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
 .move-btn {
