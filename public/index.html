@@ -36,7 +36,10 @@
     <div class="column extra-column" data-column="future-plans" id="futurePlansColumn">
       <div class="column-header">
         <h2>🔮 Future Plans</h2>
-        <button class="add-btn" onclick="openModal('future-plans')">+</button>
+        <div class="column-header-actions">
+          <button class="collapse-all-btn" onclick="toggleCollapseAll('future-plans')" title="Collapse/Expand all">▼</button>
+          <button class="add-btn" onclick="openModal('future-plans')">+</button>
+        </div>
       </div>
       <div class="tasks" id="future-plans"></div>
     </div>
@@ -44,7 +47,10 @@
     <div class="column" data-column="planned">
       <div class="column-header">
         <h2>📝 Planned</h2>
-        <button class="add-btn" onclick="openModal('planned')">+</button>
+        <div class="column-header-actions">
+          <button class="collapse-all-btn" onclick="toggleCollapseAll('planned')" title="Collapse/Expand all">▼</button>
+          <button class="add-btn" onclick="openModal('planned')">+</button>
+        </div>
       </div>
       <div class="tasks" id="planned"></div>
     </div>
@@ -52,7 +58,10 @@
     <div class="column" data-column="in-progress">
       <div class="column-header">
         <h2>🔄 In Progress</h2>
-        <button class="add-btn" onclick="openModal('in-progress')">+</button>
+        <div class="column-header-actions">
+          <button class="collapse-all-btn" onclick="toggleCollapseAll('in-progress')" title="Collapse/Expand all">▼</button>
+          <button class="add-btn" onclick="openModal('in-progress')">+</button>
+        </div>
       </div>
       <div class="tasks" id="in-progress"></div>
     </div>
@@ -60,7 +69,10 @@
     <div class="column" data-column="completed">
       <div class="column-header">
         <h2>✅ Completed</h2>
-        <button class="add-btn" onclick="openModal('completed')">+</button>
+        <div class="column-header-actions">
+          <button class="collapse-all-btn" onclick="toggleCollapseAll('completed')" title="Collapse/Expand all">▼</button>
+          <button class="add-btn" onclick="openModal('completed')">+</button>
+        </div>
       </div>
       <div class="tasks" id="completed"></div>
     </div>
@@ -69,8 +81,11 @@
     <div class="column extra-column archives-column" data-column="archives" id="archivesColumn">
       <div class="column-header">
         <h2>🗄️ Archives</h2>
-        <div class="archive-actions">
-          <button class="delete-all-btn" onclick="deleteAllArchives()" title="Delete all archived tasks">🗑️ Clear All</button>
+        <div class="column-header-actions">
+          <button class="collapse-all-btn" onclick="toggleCollapseAll('archives')" title="Collapse/Expand all">▼</button>
+          <div class="archive-actions">
+            <button class="delete-all-btn" onclick="deleteAllArchives()" title="Delete all archived tasks">🗑️ Clear All</button>
+          </div>
         </div>
       </div>
       <div class="archive-search">

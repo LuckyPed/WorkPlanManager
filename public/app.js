@@ -126,6 +126,49 @@ function toggleTaskCollapse(taskId) {
   }
 }
 
+// Toggle collapse/expand all tasks in a column
+function toggleCollapseAll(columnId) {
+  const container = document.getElementById(columnId);
+  if (!container) return;
+  
+  const taskEls = container.querySelectorAll('.task');
+  if (taskEls.length === 0) return;
+  
+  // Check if any tasks with content are expanded (not collapsed)
+  const expandedWithContent = Array.from(taskEls).filter(el => {
+    const hasContent = el.querySelector('.task-content');
+    return hasContent && !el.classList.contains('collapsed');
+  });
+  
+  const shouldCollapse = expandedWithContent.length > 0;
+  
+  taskEls.forEach(taskEl => {
+    const hasContent = taskEl.querySelector('.task-content');
+    if (!hasContent) return;
+    
+    if (shouldCollapse) {
+      taskEl.classList.add('collapsed');
+    } else {
+      taskEl.classList.remove('collapsed');
+    }
+    
+    // Update individual collapse button icon
+    const btn = taskEl.querySelector('.collapse-btn');
+    if (btn) {
+      btn.textContent = taskEl.classList.contains('collapsed') ? '▶' : '▼';
+    }
+  });
+  
+  // Update the column header button icon
+  const column = document.querySelector(`.column[data-column="${columnId}"]`);
+  if (column) {
+    const headerBtn = column.querySelector('.collapse-all-btn');
+    if (headerBtn) {
+      headerBtn.textContent = shouldCollapse ? '▶' : '▼';
+    }
+  }
+}
+
 // Escape HTML to prevent XSS
 function escapeHtml(text) {
   const div = document.createElement('div');
