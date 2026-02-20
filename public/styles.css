@@ -293,7 +293,6 @@ header h1 {
   background: var(--bg-card);
   border-radius: 8px;
   padding: 1rem;
-  padding-bottom: 1.2rem; /* Extra space for bottom buttons */
   cursor: grab;
   transition: all 0.2s;
   border: 1px solid transparent;
@@ -373,11 +372,11 @@ header h1 {
   justify-content: center;
 }
 
-/* Move buttons container - bottom right */
+/* Move buttons container - top left */
 .task-move-actions {
   position: absolute;
-  bottom: 0.5rem;
-  right: 0.5rem;
+  top: 0.5rem;
+  left: 0.5rem;
   display: flex;
   gap: 0.25rem;
   opacity: 0;
@@ -395,11 +394,8 @@ header h1 {
   color: #000;
 }
 
-/* Collapse button - positioned top-left */
+/* Collapse button - in task-actions row (inline, not absolute) */
 .collapse-btn {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
   width: 24px;
   height: 24px;
   border: none;
@@ -411,11 +407,11 @@ header h1 {
   justify-content: center;
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-secondary);
-  opacity: 0;
   transition: all 0.2s;
 }
 
-.task:hover .collapse-btn {
+.task:hover .collapse-btn,
+.task:hover .task-move-actions {
   opacity: 1;
 }
 
@@ -435,7 +431,7 @@ header h1 {
 }
 
 .task.collapsed {
-  padding-bottom: 1.2rem; /* Keep bottom padding for buttons even when collapsed */
+  padding-bottom: 1rem; /* Normal padding when collapsed */
 }
 
 .edit-btn {

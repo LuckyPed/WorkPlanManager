@@ -78,8 +78,8 @@ function createTaskHTML(task, isArchive = false) {
     // Archive tasks have restore and permanent delete buttons
     return `
       <div class="task" draggable="true" data-id="${task.id}">
-        ${collapseBtn}
         <div class="task-actions">
+          ${collapseBtn}
           <button class="restore-btn" onclick="restoreTask(${task.id})" title="Restore to Planned">↩️</button>
           <button class="delete-btn" onclick="permanentDeleteTask(${task.id})" title="Delete permanently">🗑️</button>
         </div>
@@ -94,8 +94,12 @@ function createTaskHTML(task, isArchive = false) {
   
   return `
     <div class="task" draggable="true" data-id="${task.id}">
-      ${collapseBtn}
+      <div class="task-move-actions">
+        <button class="move-btn" onclick="moveTask(${task.id}, -1)" title="Move up">▲</button>
+        <button class="move-btn" onclick="moveTask(${task.id}, 1)" title="Move down">▼</button>
+      </div>
       <div class="task-actions">
+        ${collapseBtn}
         <button class="edit-btn" onclick="editTask(${task.id})" title="Edit">✏️</button>
         <button class="delete-btn" onclick="deleteTask(${task.id})" title="Archive">🗑️</button>
       </div>
@@ -103,10 +107,6 @@ function createTaskHTML(task, isArchive = false) {
       <div class="task-content">
         ${task.description ? `<div class="task-desc">${processDescription(task.description)}</div>` : ''}
         ${followupHtml}
-      </div>
-      <div class="task-move-actions">
-        <button class="move-btn" onclick="moveTask(${task.id}, -1)" title="Move up">▲</button>
-        <button class="move-btn" onclick="moveTask(${task.id}, 1)" title="Move down">▼</button>
       </div>
     </div>
   `;
