@@ -13,6 +13,8 @@ services:
       PORT: 3000
       DB_PATH: /app/data/workplans.db
       TZ: Asia/Ho_Chi_Minh
+      # AUTH_USER: admin
+      # AUTH_PASSWORD: your-secure-password
 
 volumes:
   workplan_data:

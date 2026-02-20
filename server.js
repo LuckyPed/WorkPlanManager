@@ -6,8 +6,34 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const AUTH_USER = process.env.AUTH_USER || '';
+const AUTH_PASSWORD = process.env.AUTH_PASSWORD || '';
+
+// Basic auth middleware (only active when AUTH_USER and AUTH_PASSWORD are set)
+function basicAuth(req, res, next) {
+  if (!AUTH_USER || !AUTH_PASSWORD) {
+    return next(); // No auth configured, allow access
+  }
+  
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Basic ')) {
+    res.setHeader('WWW-Authenticate', 'Basic realm="Work Plan Manager"');
+    return res.status(401).send('Authentication required');
+  }
+  
+  const credentials = Buffer.from(authHeader.slice(6), 'base64').toString();
+  const [user, password] = credentials.split(':');
+  
+  if (user === AUTH_USER && password === AUTH_PASSWORD) {
+    return next();
+  }
+  
+  res.setHeader('WWW-Authenticate', 'Basic realm="Work Plan Manager"');
+  return res.status(401).send('Invalid credentials');
+}
 
 // Middleware
+app.use(basicAuth);
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Allow larger payloads for images
 app.use(express.static('public'));

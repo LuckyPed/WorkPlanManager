@@ -41,7 +41,7 @@ function renderTasks() {
     
     const columnTasks = tasks
       .filter(t => t.column_id === columnId)
-      .sort((a, b) => columnId === 'archives' ? b.position - a.position : a.position - b.position);
+      .sort((a, b) => a.position - b.position);
     
     // Update task count badge
     updateTaskCount(columnId, columnTasks.length);
@@ -1232,7 +1232,7 @@ function filterArchives() {
       archiveContainer.innerHTML = '<div class="empty-state">No archived tasks</div>';
     } else {
       archiveContainer.innerHTML = archiveTasks
-        .sort((a, b) => b.position - a.position)
+        .sort((a, b) => a.position - b.position)
         .map(task => createTaskHTML(task, true))
         .join('');
     }
@@ -1247,7 +1247,7 @@ function filterArchives() {
       archiveContainer.innerHTML = '<div class="empty-state">No matching tasks</div>';
     } else {
       archiveContainer.innerHTML = filtered
-        .sort((a, b) => b.position - a.position)
+        .sort((a, b) => a.position - b.position)
         .map(task => createTaskHTML(task, true))
         .join('');
     }
