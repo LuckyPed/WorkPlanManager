@@ -873,8 +873,9 @@ header h1 {
   font-weight: normal;
 }
 
-/* Images in task descriptions */
-.task-desc img {
+/* Images in task descriptions and follow-ups */
+.task-desc img,
+.task-followup img {
   max-width: 100%;
   border-radius: 6px;
   margin-top: 0.5rem;
@@ -882,7 +883,8 @@ header h1 {
   transition: transform 0.2s;
 }
 
-.task-desc img:hover {
+.task-desc img:hover,
+.task-followup img:hover {
   transform: scale(1.02);
 }
 

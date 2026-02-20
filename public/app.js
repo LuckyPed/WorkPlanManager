@@ -973,19 +973,24 @@ async function confirmImport(mode) {
 }
 // ============ IMAGE PASTE HANDLING ============
 
-// Setup image paste on description textarea
+// Setup image paste on description and follow-up textareas
 function setupImagePaste() {
   const descTextarea = document.getElementById('taskDesc');
-  if (!descTextarea) return;
+  if (descTextarea) {
+    descTextarea.addEventListener('paste', (e) => handleImagePaste(e, 'taskDesc', 'imagePreview'));
+  }
   
-  descTextarea.addEventListener('paste', handleImagePaste);
+  const followupTextarea = document.getElementById('taskFollowup');
+  if (followupTextarea) {
+    followupTextarea.addEventListener('paste', (e) => handleImagePaste(e, 'taskFollowup', 'followupImagePreview'));
+  }
 }
 
 // Initialize image paste when DOM ready
 document.addEventListener('DOMContentLoaded', setupImagePaste);
 
 // Handle paste event with image
-async function handleImagePaste(e) {
+async function handleImagePaste(e, textareaId, previewId) {
   const items = e.clipboardData?.items;
   if (!items) return;
   
@@ -1006,7 +1011,7 @@ async function handleImagePaste(e) {
         const imageUrl = await uploadImage(compressedDataUrl);
         
         // Insert URL into textarea
-        const textarea = document.getElementById('taskDesc');
+        const textarea = document.getElementById(textareaId);
         const cursorPos = textarea.selectionStart;
         const text = textarea.value;
         const imageMarkdown = `[img:${imageUrl}]`;
@@ -1015,7 +1020,7 @@ async function handleImagePaste(e) {
         textarea.selectionStart = textarea.selectionEnd = cursorPos + imageMarkdown.length;
         
         // Show preview
-        updateImagePreview();
+        updateImagePreviewFor(textareaId, previewId);
         showToast('Image added!');
       } catch (error) {
         console.error('Image paste error:', error);
@@ -1089,11 +1094,11 @@ async function uploadImage(dataUrl) {
   return data.url;
 }
 
-// Update image preview in modal
-function updateImagePreview() {
-  const textarea = document.getElementById('taskDesc');
-  const previewContainer = document.getElementById('imagePreview');
-  if (!previewContainer) return;
+// Update image preview in modal (generic for any textarea/preview pair)
+function updateImagePreviewFor(textareaId, previewId) {
+  const textarea = document.getElementById(textareaId);
+  const previewContainer = document.getElementById(previewId);
+  if (!previewContainer || !textarea) return;
   
   const text = textarea.value;
   const imageMatches = text.match(/\[img:([^\]]+)\]/g) || [];
@@ -1103,21 +1108,26 @@ function updateImagePreview() {
     return `
       <div class="image-preview-item">
         <img src="${url}" alt="Preview" onclick="openLightbox('${url}')">
-        <button class="remove-img" onclick="removeImage(${index})" title="Remove image">&times;</button>
+        <button class="remove-img" onclick="removeImageFrom('${textareaId}', '${previewId}', ${index})" title="Remove image">&times;</button>
       </div>
     `;
   }).join('');
 }
 
-// Remove image from description
-function removeImage(index) {
-  const textarea = document.getElementById('taskDesc');
+// Legacy wrapper for description preview
+function updateImagePreview() {
+  updateImagePreviewFor('taskDesc', 'imagePreview');
+}
+
+// Remove image from a specific textarea
+function removeImageFrom(textareaId, previewId, index) {
+  const textarea = document.getElementById(textareaId);
   const text = textarea.value;
   const imageMatches = text.match(/\[img:([^\]]+)\]/g) || [];
   
   if (index < imageMatches.length) {
     textarea.value = text.replace(imageMatches[index], '');
-    updateImagePreview();
+    updateImagePreviewFor(textareaId, previewId);
   }
 }
 
@@ -1152,7 +1162,10 @@ function openLightbox(url) {
 const originalOpenModal = openModal;
 window.openModal = function(columnId, taskId = null) {
   originalOpenModal(columnId, taskId);
-  setTimeout(updateImagePreview, 50);
+  setTimeout(() => {
+    updateImagePreviewFor('taskDesc', 'imagePreview');
+    updateImagePreviewFor('taskFollowup', 'followupImagePreview');
+  }, 50);
 };
 
 // ============ EXTRA COLUMNS (Future Plans & Archives) ============

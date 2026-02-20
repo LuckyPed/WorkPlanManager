@@ -169,13 +169,16 @@ app.put('/api/tasks/:id', (req, res) => {
 app.delete('/api/tasks/:id', (req, res) => {
   const { id } = req.params;
   
-  // Get task to find any images in description
-  const taskResult = db.exec(`SELECT description FROM tasks WHERE id = ${id}`);
+  // Get task to find any images in description and followup
+  const taskResult = db.exec(`SELECT description, followup FROM tasks WHERE id = ${id}`);
   if (taskResult.length > 0 && taskResult[0].values.length > 0) {
     const description = taskResult[0].values[0][0];
-    if (description) {
-      // Find and delete any images referenced in the description
-      const imageMatches = description.match(/\[img:\/images\/([^\]]+)\]/g);
+    const followup = taskResult[0].values[0][1];
+    
+    // Clean up images from both description and followup
+    const allText = [description, followup].filter(Boolean).join(' ');
+    if (allText) {
+      const imageMatches = allText.match(/\[img:\/images\/([^\]]+)\]/g);
       if (imageMatches) {
         imageMatches.forEach(match => {
           const filename = match.match(/\[img:\/images\/([^\]]+)\]/)[1];
