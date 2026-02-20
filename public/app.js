@@ -58,6 +58,11 @@ function renderTasks() {
   // Re-attach drag events and double-click to new elements
   document.querySelectorAll('.task').forEach(taskEl => {
     setupTaskDrag(taskEl);
+    // Prevent images from being dragged independently
+    taskEl.querySelectorAll('img').forEach(img => {
+      img.draggable = false;
+      img.addEventListener('dragstart', e => e.preventDefault());
+    });
     // Double-click to edit
     taskEl.addEventListener('dblclick', (e) => {
       // Ignore if clicking on action buttons

@@ -881,11 +881,19 @@ header h1 {
   margin-top: 0.5rem;
   cursor: pointer;
   transition: transform 0.2s;
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: auto;
 }
 
 .task-desc img:hover,
 .task-followup img:hover {
   transform: scale(1.02);
+}
+
+/* Prevent image drag from interfering with task drag */
+.task img {
+  -webkit-user-drag: none;
 }
 
 /* Image lightbox */
