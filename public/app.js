@@ -41,7 +41,7 @@ function renderTasks() {
     
     const columnTasks = tasks
       .filter(t => t.column_id === columnId)
-      .sort((a, b) => a.position - b.position);
+      .sort((a, b) => columnId === 'archives' ? b.position - a.position : a.position - b.position);
     
     // Update task count badge
     updateTaskCount(columnId, columnTasks.length);
@@ -408,18 +408,28 @@ async function deleteTask(id) {
   if (!task) return;
   
   try {
-    // Move to archives column
+    // Move to archives column - position 0 so it appears on top
+    // Shift existing archive tasks' positions up by 1
     const archiveTasks = tasks.filter(t => t.column_id === 'archives');
-    const newPosition = archiveTasks.length;
+    archiveTasks.forEach(t => t.position = t.position + 1);
+    
+    // Batch update existing archive positions
+    if (archiveTasks.length > 0) {
+      await fetch(`${API_URL}/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks: archiveTasks.map(t => ({ id: t.id, column_id: t.column_id, position: t.position })) })
+      });
+    }
     
     await fetch(`${API_URL}/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ column_id: 'archives', position: newPosition })
+      body: JSON.stringify({ column_id: 'archives', position: 0 })
     });
     
     task.column_id = 'archives';
-    task.position = newPosition;
+    task.position = 0;
     
     setTimeout(() => renderTasks(), 200);
     showToast('Task archived');
@@ -1166,7 +1176,7 @@ function filterArchives() {
       archiveContainer.innerHTML = '<div class="empty-state">No archived tasks</div>';
     } else {
       archiveContainer.innerHTML = archiveTasks
-        .sort((a, b) => a.position - b.position)
+        .sort((a, b) => b.position - a.position)
         .map(task => createTaskHTML(task, true))
         .join('');
     }
@@ -1181,7 +1191,7 @@ function filterArchives() {
       archiveContainer.innerHTML = '<div class="empty-state">No matching tasks</div>';
     } else {
       archiveContainer.innerHTML = filtered
-        .sort((a, b) => a.position - b.position)
+        .sort((a, b) => b.position - a.position)
         .map(task => createTaskHTML(task, true))
         .join('');
     }
