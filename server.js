@@ -3,40 +3,278 @@ const initSqlJs = require('sql.js');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const AUTH_USER = process.env.AUTH_USER || '';
 const AUTH_PASSWORD = process.env.AUTH_PASSWORD || '';
 
-// Basic auth middleware (only active when AUTH_USER and AUTH_PASSWORD are set)
-function basicAuth(req, res, next) {
+// Generate a secret for signing tokens (derived from credentials, stable across restarts)
+const TOKEN_SECRET = AUTH_USER && AUTH_PASSWORD 
+  ? crypto.createHash('sha256').update(`${AUTH_USER}:${AUTH_PASSWORD}:wpm-secret-salt`).digest('hex')
+  : '';
+
+// Cookie-based auth: generate a signed token that lasts 6 months
+function generateAuthToken() {
+  const expiry = Date.now() + (180 * 24 * 60 * 60 * 1000); // 6 months
+  const payload = `${AUTH_USER}:${expiry}`;
+  const signature = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('hex');
+  return `${payload}:${signature}`;
+}
+
+function verifyAuthToken(token) {
+  if (!token) return false;
+  const parts = token.split(':');
+  if (parts.length !== 3) return false;
+  
+  const [user, expiry, signature] = parts;
+  
+  // Check expiry
+  if (Date.now() > parseInt(expiry)) return false;
+  
+  // Verify signature
+  const payload = `${user}:${expiry}`;
+  const expected = crypto.createHmac('sha256', TOKEN_SECRET).update(payload).digest('hex');
+  
+  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+}
+
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  if (!cookieHeader) return cookies;
+  cookieHeader.split(';').forEach(c => {
+    const [key, ...val] = c.trim().split('=');
+    if (key) cookies[key.trim()] = decodeURIComponent(val.join('='));
+  });
+  return cookies;
+}
+
+// Auth middleware (only active when AUTH_USER and AUTH_PASSWORD are set)
+function authMiddleware(req, res, next) {
   if (!AUTH_USER || !AUTH_PASSWORD) {
-    return next(); // No auth configured, allow access
+    return next(); // No auth configured
   }
   
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Basic ')) {
-    res.setHeader('WWW-Authenticate', 'Basic realm="Work Plan Manager"');
-    return res.status(401).send('Authentication required');
-  }
-  
-  const credentials = Buffer.from(authHeader.slice(6), 'base64').toString();
-  const [user, password] = credentials.split(':');
-  
-  if (user === AUTH_USER && password === AUTH_PASSWORD) {
+  // Allow login page and login API without auth
+  if (req.path === '/login' || req.path === '/api/auth/login' || req.path === '/api/auth/check') {
     return next();
   }
   
-  res.setHeader('WWW-Authenticate', 'Basic realm="Work Plan Manager"');
-  return res.status(401).send('Invalid credentials');
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies['wpm_auth'];
+  
+  if (token && verifyAuthToken(token)) {
+    return next(); // Valid token
+  }
+  
+  // For API requests, return 401
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  // For page requests, redirect to login
+  return res.redirect('/login');
 }
 
 // Middleware
-app.use(basicAuth);
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Allow larger payloads for images
+
+// Login page (served before auth middleware for static files)
+app.get('/login', (req, res) => {
+  if (!AUTH_USER || !AUTH_PASSWORD) {
+    return res.redirect('/');
+  }
+  // Check if already authenticated
+  const cookies = parseCookies(req.headers.cookie);
+  if (cookies['wpm_auth'] && verifyAuthToken(cookies['wpm_auth'])) {
+    return res.redirect('/');
+  }
+  res.send(getLoginPageHTML());
+});
+
+// Login API
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  if (username === AUTH_USER && password === AUTH_PASSWORD) {
+    const token = generateAuthToken();
+    res.setHeader('Set-Cookie', `wpm_auth=${encodeURIComponent(token)}; Path=/; Max-Age=${180 * 24 * 60 * 60}; HttpOnly; SameSite=Strict${req.secure || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : ''}`);
+    return res.json({ success: true });
+  }
+  
+  return res.status(401).json({ error: 'Invalid username or password' });
+});
+
+// Auth check endpoint
+app.get('/api/auth/check', (req, res) => {
+  if (!AUTH_USER || !AUTH_PASSWORD) {
+    return res.json({ authenticated: true, authEnabled: false });
+  }
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies['wpm_auth'];
+  const authenticated = token && verifyAuthToken(token);
+  res.json({ authenticated, authEnabled: true });
+});
+
+// Logout
+app.post('/api/auth/logout', (req, res) => {
+  res.setHeader('Set-Cookie', `wpm_auth=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict`);
+  res.json({ success: true });
+});
+
+// Apply auth middleware AFTER login routes
+app.use(authMiddleware);
 app.use(express.static('public'));
+
+// Login page HTML
+function getLoginPageHTML() {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Work Plan Manager</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #eee;
+    }
+    .login-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 2.5rem;
+      width: 90%;
+      max-width: 380px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    }
+    .login-box h1 {
+      text-align: center;
+      margin-bottom: 0.5rem;
+      font-size: 1.5rem;
+    }
+    .login-box .subtitle {
+      text-align: center;
+      color: #aaa;
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+    }
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.4rem;
+      font-size: 0.85rem;
+      color: #aaa;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.25);
+      color: #eee;
+      font-size: 1rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: #e94560;
+    }
+    .login-btn {
+      width: 100%;
+      padding: 0.85rem;
+      border: none;
+      border-radius: 8px;
+      background: #e94560;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 0.5rem;
+    }
+    .login-btn:hover { background: #ff6b6b; }
+    .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .error-msg {
+      color: #ff6b6b;
+      text-align: center;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      min-height: 1.2rem;
+    }
+    .remember-note {
+      text-align: center;
+      color: #666;
+      font-size: 0.75rem;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h1>\ud83d\udccb Work Plan Manager</h1>
+    <p class="subtitle">Please sign in to continue</p>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" autocomplete="username" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
+      <div class="error-msg" id="errorMsg"></div>
+    </form>
+    <p class="remember-note">\ud83d\udd12 You'll stay signed in for 6 months</p>
+  </div>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      const errorMsg = document.getElementById('errorMsg');
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+      errorMsg.textContent = '';
+      
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('username').value,
+            password: document.getElementById('password').value
+          })
+        });
+        
+        if (res.ok) {
+          window.location.href = '/';
+        } else {
+          const data = await res.json();
+          errorMsg.textContent = data.error || 'Login failed';
+        }
+      } catch (err) {
+        errorMsg.textContent = 'Connection error';
+      }
+      
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    });
+  </script>
+</body>
+</html>`;
+}
 
 // Database setup
 const dbPath = process.env.DB_PATH || './data/workplans.db';
