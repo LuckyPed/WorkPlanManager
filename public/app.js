@@ -397,6 +397,14 @@ function closeModal() {
   document.getElementById('taskModal').classList.remove('active');
 }
 
+function hasModalText() {
+  return [
+    document.getElementById('taskTitleInput').value,
+    document.getElementById('taskDesc').value,
+    document.getElementById('taskFollowup').value
+  ].some(value => value.trim().length > 0);
+}
+
 function editTask(id) {
   const task = tasks.find(t => t.id === id);
   if (task) {
@@ -598,14 +606,14 @@ function setupForm() {
   
   // Close modal on outside click
   document.getElementById('taskModal').addEventListener('click', (e) => {
-    if (e.target.classList.contains('modal')) {
+    if (e.target.classList.contains('modal') && !hasModalText()) {
       closeModal();
     }
   });
   
   // Close modal on Escape
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape' && !hasModalText()) closeModal();
   });
 }
 
